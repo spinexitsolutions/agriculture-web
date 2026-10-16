@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <!--HEAD-->
+    <link rel="stylesheet" href="/css/site.css">
+  </head>
+  <body class="is-loading">
+    <div class="preloader" id="preloader" aria-hidden="true">
+      <div class="preloader__inner">
+        <div class="preloader__word" id="preloader-word"></div>
+        <div class="preloader__count"><span id="preloader-count">0</span>%</div>
+      </div>
+      <div class="preloader__bar"><span id="preloader-bar"></span></div>
+    </div>
+
+    <div class="cursor" aria-hidden="true"><div class="cursor__dot"></div><div class="cursor__ring"><span class="cursor__label"></span></div></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="scroll-progress" aria-hidden="true"><span></span></div>
+
+    <div id="announcement"></div>
+    <header class="header" id="header"></header>
+    <div class="menu" id="menu" aria-hidden="true"></div>
+
+    <main id="app"></main>
+    <footer class="footer" id="footer"></footer>
+
+    <div id="floating"></div>
+    <div class="lightbox" id="lightbox" aria-hidden="true">
+      <button class="lightbox__close" aria-label="Close">✕</button>
+      <img alt="">
+      <p class="lightbox__caption"></p>
+    </div>
+
+    <noscript><p style="padding:2rem;text-align:center">Please enable JavaScript to view this website.</p></noscript>
+    <script src="/vendor/lenis.min.js"></script>
+    <script src="/js/fonts.js"></script>
+    <script src="/js/site.js"></script>
+    <!--BODY_END-->
+  </body>
+</html>
