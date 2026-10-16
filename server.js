@@ -1,12 +1,15 @@
 const express = require('express');
 const multer = require('multer');
+const compression = require('compression');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 const db = require('./lib/db');
 const auth = require('./lib/auth');
-const { defaults, PRESETS, SECTION_LABELS } = require('./lib/defaults');
+const shop = require('./lib/shop');
+const mandi = require('./lib/mandi');
+const { defaults, PRESETS, SECTION_LABELS, COLLECTIONS } = require('./lib/defaults');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
@@ -18,6 +21,8 @@ auth.ensureAdmin();
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use(compression());
 app.use(express.json({ limit: '5mb' }));
 
 // ---------- helpers ----------
@@ -80,15 +85,30 @@ function rateLimit(max, windowMs) {
 // Data the public site is allowed to see — never includes secrets.
 function publicSite(data) {
   const i = data.integrations;
+  const c = data.commerce;
   return {
     settings: data.settings,
     navigation: data.navigation,
     theme: data.theme,
     sections: data.sections.filter((s) => s.enabled),
+    products: data.products.filter((p) => p.active),
+    posts: data.posts.filter((p) => p.published).sort((a, b) => String(b.date).localeCompare(String(a.date))),
+    pages: data.pages,
+    team: data.team,
+    jobs: data.jobs.filter((j) => j.active),
+    crops: data.crops,
+    advisories: data.advisories,
+    schemes: data.schemes,
+    commerce: {
+      enabled: !!c.enabled, currencySymbol: c.currencySymbol, deliveryFee: Number(c.deliveryFee) || 0, freeDeliveryAbove: Number(c.freeDeliveryAbove) || 0,
+      minOrder: Number(c.minOrder) || 0, cod: !!c.cod, deliveryDays: c.deliveryDays, orderNote: c.orderNote,
+      online: !!(i.razorpay.enabled && i.razorpay.keyId && i.razorpay.keySecret),
+    },
     integrations: {
       weather: { enabled: !!i.weather.enabled, city: i.weather.city, units: i.weather.units },
       whatsapp: i.whatsapp.enabled ? { enabled: true, number: i.whatsapp.number, message: i.whatsapp.message } : { enabled: false },
       recaptcha: i.recaptcha.enabled ? { enabled: true, siteKey: i.recaptcha.siteKey } : { enabled: false },
+      mandi: { enabled: !!(i.mandi.enabled && i.mandi.apiKey), defaultState: i.mandi.defaultState },
       customApis: i.customApis.filter((a) => a.enabled && a.public).map((a) => ({ id: a.id, name: a.name, display: a.display || {} })),
     },
   };
@@ -254,6 +274,120 @@ app.post('/api/subscribe', rateLimit(5, 10 * 60 * 1000), (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- farmer / business requests ----------
+const LEAD_TYPES = {
+  'farmer-registration': 'Farmer registration',
+  'soil-test': 'Soil test booking',
+  callback: 'Call-back request',
+  'bulk-quote': 'Bulk / B2B quote',
+  'job-application': 'Job application',
+};
+
+app.post('/api/leads', rateLimit(8, 10 * 60 * 1000), (req, res) => {
+  const { type, website, ...fields } = req.body || {};
+  if (website) return res.json({ ok: true }); // honeypot
+  if (!LEAD_TYPES[type]) return res.status(400).json({ error: 'Unknown form.' });
+  const clean = {};
+  Object.entries(fields).slice(0, 25).forEach(([k, v]) => {
+    if (/^[a-zA-Z][\w-]{0,40}$/.test(k) && v != null && typeof v !== 'object') clean[k] = String(v).trim().slice(0, 2000);
+  });
+  if (!clean.name || !(clean.phone || clean.email)) return res.status(400).json({ error: 'Please add your name and a phone number.' });
+  if (clean.phone && !/^[+\d\s-]{10,15}$/.test(clean.phone)) return res.status(400).json({ error: 'Please enter a valid phone number.' });
+  if (clean.email && !/^\S+@\S+\.\S+$/.test(clean.email)) return res.status(400).json({ error: 'Please enter a valid email.' });
+  const lead = { id: crypto.randomUUID(), type, label: LEAD_TYPES[type], fields: clean, status: 'new', createdAt: new Date().toISOString() };
+  db.update((d) => d.leads.unshift(lead));
+  sendWebhook('lead.created', lead);
+  res.json({ ok: true });
+});
+
+// ---------- mandi prices ----------
+app.get('/api/mandi', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=600');
+    res.json(await mandi.prices({ state: String(req.query.state || ''), district: String(req.query.district || ''), commodity: String(req.query.commodity || '') }));
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.status ? e.message : 'Mandi prices are unavailable right now.' });
+  }
+});
+
+// ---------- shop ----------
+app.post('/api/pincode', (req, res) => res.json(shop.checkPincode(req.body?.pincode)));
+
+app.post('/api/cart/price', (req, res) => {
+  try { res.json(shop.priceCart(req.body?.items)); } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.post('/api/orders', rateLimit(10, 10 * 60 * 1000), async (req, res) => {
+  try {
+    const result = await shop.createOrder(req.body || {}, auth.currentCustomer(req));
+    sendWebhook('order.created', result.order);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/orders/:number/verify', (req, res) => {
+  try {
+    const order = shop.verifyPayment(req.params.number, req.body || {});
+    sendWebhook('order.paid', order);
+    res.json({ order });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/orders/track', rateLimit(20, 10 * 60 * 1000), (req, res) => {
+  const order = shop.track(req.body?.number, req.body?.phone);
+  if (!order) return res.status(404).json({ error: 'No order found with that number and phone.' });
+  res.json({ order });
+});
+
+// ---------- customer accounts ----------
+const publicCustomer = (c) => ({ name: c.name, email: c.email, phone: c.phone, address: c.address || null });
+
+app.post('/api/account/register', rateLimit(10, 15 * 60 * 1000), (req, res) => {
+  const { name = '', email = '', phone = '', password = '' } = req.body || {};
+  const e = String(email).trim().toLowerCase();
+  if (!String(name).trim() || !/^\S+@\S+\.\S+$/.test(e)) return res.status(400).json({ error: 'Please enter your name and a valid email.' });
+  if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+  if (db.get().customers.some((c) => c.email === e)) return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+  const customer = { id: crypto.randomUUID(), name: String(name).trim().slice(0, 120), email: e, phone: String(phone).trim().slice(0, 20), ...auth.hashPassword(String(password)), createdAt: new Date().toISOString() };
+  db.update((d) => d.customers.push(customer));
+  auth.setCustomer(res, e);
+  res.json({ customer: publicCustomer(customer) });
+});
+
+app.post('/api/account/login', rateLimit(10, 15 * 60 * 1000), (req, res) => {
+  const e = String(req.body?.email || '').trim().toLowerCase();
+  const c = db.get().customers.find((x) => x.email === e);
+  if (!c || !auth.verifyPassword(String(req.body?.password || ''), c)) return res.status(401).json({ error: 'Wrong email or password.' });
+  auth.setCustomer(res, e);
+  res.json({ customer: publicCustomer(c) });
+});
+
+app.post('/api/account/logout', (req, res) => { auth.clearCustomer(res); res.json({ ok: true }); });
+
+app.get('/api/account/me', (req, res) => {
+  const c = auth.currentCustomer(req);
+  if (!c) return res.status(401).json({ error: 'Not signed in' });
+  const orders = db.get().orders.filter((o) => o.customerEmail === c.email).map(shop.publicOrder);
+  res.json({ customer: publicCustomer(c), orders });
+});
+
+app.patch('/api/account/me', (req, res) => {
+  const c = auth.currentCustomer(req);
+  if (!c) return res.status(401).json({ error: 'Not signed in' });
+  const { name, phone, address } = req.body || {};
+  db.update((d) => {
+    const x = d.customers.find((y) => y.email === c.email);
+    if (name) x.name = String(name).slice(0, 120);
+    if (phone) x.phone = String(phone).slice(0, 20);
+    if (address && typeof address === 'object') x.address = Object.fromEntries(Object.entries(address).slice(0, 10).map(([k, v]) => [k, String(v).slice(0, 200)]));
+  });
+  res.json({ customer: publicCustomer(db.get().customers.find((y) => y.email === c.email)) });
+});
+
 function sendWebhook(event, payload) {
   const hook = db.get().integrations.webhook;
   if (!hook.enabled || !hook.url) return;
@@ -284,16 +418,29 @@ admin.use(auth.requireAuth);
 admin.get('/me', (req, res) => res.json({ username: req.user.username, mustChange: !!req.user.mustChange }));
 
 admin.get('/data', (req, res) => {
-  const { users, ...rest } = db.get();
-  res.json({ ...rest, presets: PRESETS, sectionLabels: SECTION_LABELS, sectionDefaults: defaults().sections });
+  const { users, customers, ...rest } = db.get();
+  res.json({
+    ...rest,
+    customers: customers.map(({ hash, salt, ...c }) => c),
+    presets: PRESETS, sectionLabels: SECTION_LABELS, sectionDefaults: defaults().sections,
+    orderStatuses: shop.STATUSES, leadTypes: LEAD_TYPES,
+  });
 });
 
-const replaceable = ['settings', 'navigation', 'theme', 'sections', 'integrations'];
-admin.put('/:key(settings|navigation|theme|sections|integrations)', (req, res) => {
+const replaceable = ['settings', 'navigation', 'theme', 'sections', 'integrations', 'commerce', ...COLLECTIONS];
+admin.put('/:key', (req, res) => {
   const key = req.params.key;
   const value = req.body;
   if (!replaceable.includes(key)) return res.status(400).json({ error: 'Unknown key' });
-  const isArray = key === 'navigation' || key === 'sections';
+  const isArray = key === 'navigation' || key === 'sections' || COLLECTIONS.includes(key);
+  if (COLLECTIONS.includes(key) && value.some?.((x) => !x || typeof x !== 'object' || !x.id)) {
+    return res.status(400).json({ error: 'Every item needs an id' });
+  }
+  if (['products', 'posts', 'pages'].includes(key)) {
+    const slugs = value.map((x) => x.slug);
+    if (slugs.some((sl) => !/^[a-z0-9-]+$/.test(sl || ''))) return res.status(400).json({ error: 'Every item needs a URL slug (lowercase letters, numbers and dashes).' });
+    if (new Set(slugs).size !== slugs.length) return res.status(400).json({ error: 'Two items share the same URL slug.' });
+  }
   if (isArray !== Array.isArray(value) || value === null || typeof value !== 'object') {
     return res.status(400).json({ error: `Invalid ${key} payload` });
   }
@@ -303,9 +450,45 @@ admin.put('/:key(settings|navigation|theme|sections|integrations)', (req, res) =
   if (key === 'integrations') {
     clearCache('weather:');
     clearCache('custom:');
+    mandi.clear();
   }
   db.update((d) => { d[key] = value; });
   res.json({ ok: true });
+});
+
+// Orders
+admin.patch('/orders/:id', (req, res) => {
+  const o = shop.setStatus(req.params.id, req.body || {});
+  if (!o) return res.status(404).json({ error: 'Order not found' });
+  res.json({ order: o });
+});
+admin.get('/orders.csv', (req, res) => {
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = [['number', 'date', 'status', 'payment', 'name', 'phone', 'city', 'pincode', 'items', 'total'].join(','),
+    ...db.get().orders.map((o) => [o.number, o.createdAt, o.status, `${o.payment.method}/${o.payment.status}`, o.address.name, o.address.phone, o.address.city, o.address.pincode, o.lines.map((l) => `${l.qty}x ${l.name}`).join('; '), o.total].map(q).join(','))];
+  res.set('Content-Type', 'text/csv').set('Content-Disposition', 'attachment; filename="orders.csv"').send(rows.join('\n'));
+});
+
+// Leads (farmer forms, bulk quotes, job applications)
+admin.patch('/leads/:id', (req, res) => {
+  db.update((d) => {
+    const l = d.leads.find((x) => x.id === req.params.id);
+    if (!l) return;
+    if (['new', 'contacted', 'closed'].includes(req.body?.status)) l.status = req.body.status;
+    if (typeof req.body?.note === 'string') l.note = req.body.note.slice(0, 2000);
+  });
+  res.json({ ok: true });
+});
+admin.delete('/leads/:id', (req, res) => {
+  db.update((d) => { d.leads = d.leads.filter((x) => x.id !== req.params.id); });
+  res.json({ ok: true });
+});
+admin.get('/leads.csv', (req, res) => {
+  const leads = db.get().leads.filter((l) => !req.query.type || l.type === req.query.type);
+  const keys = [...new Set(leads.flatMap((l) => Object.keys(l.fields)))];
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const rows = [['type', 'status', 'date', ...keys].join(','), ...leads.map((l) => [l.label, l.status, l.createdAt, ...keys.map((k) => l.fields[k])].map(q).join(','))];
+  res.set('Content-Type', 'text/csv').set('Content-Disposition', 'attachment; filename="requests.csv"').send(rows.join('\n'));
 });
 
 // Messages
@@ -421,6 +604,33 @@ admin.post('/test/api', async (req, res) => {
   }
 });
 
+admin.post('/test/mandi', async (req, res) => {
+  const saved = db.get().integrations.mandi;
+  try {
+    mandi.clear();
+    db.get().integrations.mandi = { ...saved, ...(req.body || {}), enabled: true };
+    const r = await mandi.prices({});
+    res.json({ ok: true, result: { state: r.state, rows: r.records.length, sample: r.records.slice(0, 3) } });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  } finally {
+    db.get().integrations.mandi = saved;
+    mandi.clear();
+  }
+});
+
+admin.post('/test/razorpay', async (req, res) => {
+  const cfg = { ...db.get().integrations.razorpay, ...(req.body || {}) };
+  if (!cfg.keyId || !cfg.keySecret) return res.status(400).json({ error: 'Key ID and Key Secret are required' });
+  try {
+    const r = await fetch('https://api.razorpay.com/v1/orders?count=1', { headers: { Authorization: `Basic ${Buffer.from(`${cfg.keyId}:${cfg.keySecret}`).toString('base64')}` } });
+    if (!r.ok) throw new Error(r.status === 401 ? 'Razorpay rejected these keys' : `Razorpay responded ${r.status}`);
+    res.json({ ok: true, result: { connected: true, mode: cfg.keyId.startsWith('rzp_live') ? 'live' : 'test' } });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 admin.post('/test/webhook', async (req, res) => {
   const hook = { ...db.get().integrations.webhook, ...(req.body || {}) };
   if (!hook.url) return res.status(400).json({ error: 'Webhook URL is required' });
@@ -451,7 +661,7 @@ admin.post('/password', (req, res) => {
 
 // Backup
 admin.get('/export', (req, res) => {
-  const { users, ...rest } = db.get();
+  const { users, customers, ...rest } = db.get();
   res.set('Content-Disposition', `attachment; filename="bhoomi-backup-${new Date().toISOString().slice(0, 10)}.json"`);
   res.json(rest);
 });
@@ -459,8 +669,8 @@ admin.get('/export', (req, res) => {
 admin.post('/import', (req, res) => {
   const data = req.body;
   if (!data || !Array.isArray(data.sections) || !data.settings || !data.theme) return res.status(400).json({ error: 'This does not look like a Bhoomi backup file' });
-  const users = db.get().users;
-  db.replace({ ...data, users });
+  const { users, customers } = db.get();
+  db.replace({ ...data, users, customers });
   clearCache('');
   res.json({ ok: true });
 });
@@ -470,7 +680,7 @@ admin.post('/reset', (req, res) => {
   const fresh = defaults();
   const current = db.get();
   const next = { ...fresh, users: current.users };
-  for (const k of ['messages', 'subscribers', 'media', 'integrations']) if (keep.includes(k)) next[k] = current[k];
+  for (const k of ['messages', 'subscribers', 'media', 'integrations', 'orders', 'leads', 'customers']) if (keep.includes(k)) next[k] = current[k];
   db.replace(next);
   clearCache('');
   res.json({ ok: true });
@@ -482,26 +692,82 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 // ---------- pages ----------
 const { fontUrl, stack } = require('./public/js/fonts.js');
 
-function renderIndex(data) {
+const STATIC_ROUTES = {
+  products: ['Shop fresh produce', 'Order farm-fresh, traceable produce delivered to your door.'],
+  blog: ['Journal', 'Stories, research and guides from the field.'],
+  mandi: ['Mandi prices today', 'Live APMC mandi prices for your state, updated daily from data.gov.in.'],
+  advisory: ['Crop calendar & advisory', 'Sowing and harvest calendar, crop advisories and government schemes for farmers.'],
+  contact: ['Contact us', 'Questions about produce, partnerships or the farmer programme? Get in touch.'],
+  bulk: ['Bulk & business supply', 'Contract-grown produce for restaurants, retailers and exporters.'],
+  cart: ['Your cart', ''], checkout: ['Checkout', ''], account: ['Your account', ''], track: ['Track your order', ''],
+};
+const NOINDEX = ['cart', 'checkout', 'account', 'track', 'order'];
+const stripMd = (s = '') => String(s).replace(/[#*_>`\[\]]|\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
+
+// Title/description/image (and structured data) for each URL, so links share well and Google sees real content.
+function routeMeta(data, urlPath, origin) {
+  const seo = data.settings.seo;
+  const site = data.settings.siteName;
+  const parts = urlPath.replace(/\/+$/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const t = (x) => `${x} — ${site}`;
+  const [a, b] = parts;
+  if (!parts.length) {
+    return { title: seo.title, description: seo.description, image: seo.ogImage,
+      jsonld: { '@context': 'https://schema.org', '@type': 'Organization', name: site, url: origin, email: data.settings.contact.email, telephone: data.settings.contact.phone, address: data.settings.contact.address } };
+  }
+  if (parts.length === 1 && STATIC_ROUTES[a]) return { title: t(STATIC_ROUTES[a][0]), description: STATIC_ROUTES[a][1] || seo.description, image: seo.ogImage, noindex: NOINDEX.includes(a) };
+  if (a === 'order' && b) return { title: t('Order status'), description: '', noindex: true };
+  if (a === 'products' && b && parts.length === 2) {
+    const p = data.products.find((x) => x.slug === b && x.active);
+    if (p) {
+      return { title: t(p.name), description: p.summary || stripMd(p.description).slice(0, 160), image: p.images?.[0],
+        jsonld: { '@context': 'https://schema.org', '@type': 'Product', name: p.name, image: p.images, description: p.summary, category: p.category,
+          offers: { '@type': 'Offer', priceCurrency: 'INR', price: p.price, availability: `https://schema.org/${Number(p.stock) > 0 ? 'InStock' : 'OutOfStock'}`, url: `${origin}/products/${p.slug}` } } };
+    }
+  }
+  if (a === 'blog' && b && parts.length === 2) {
+    const p = data.posts.find((x) => x.slug === b && x.published);
+    if (p) {
+      return { title: t(p.title), description: p.excerpt, image: p.cover, type: 'article',
+        jsonld: { '@context': 'https://schema.org', '@type': 'Article', headline: p.title, image: p.cover, datePublished: p.date, author: { '@type': 'Person', name: p.author } } };
+    }
+  }
+  if (a === 'services' && b && parts.length === 2) {
+    const svc = data.sections.filter((x) => x.type === 'services').flatMap((x) => x.items || []).find((x) => x.slug === b);
+    if (svc) return { title: t(svc.title), description: svc.text, image: svc.image };
+  }
+  if (parts.length === 1) {
+    const page = data.pages.find((x) => x.slug === a);
+    if (page) return { title: t(page.title), description: page.seoDescription || page.subtitle || stripMd(page.content).slice(0, 160), image: page.cover || seo.ogImage };
+  }
+  return null;
+}
+
+function renderIndex(data, req) {
   const { settings, theme, integrations } = data;
   const seo = settings.seo;
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const meta = routeMeta(data, req.path, origin) || { title: `Page not found — ${settings.siteName}`, description: seo.description, noindex: true };
   const ga = integrations.googleAnalytics;
   const c = theme.colors;
   const vars = Object.entries(c).map(([k, v]) => `--${k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase())}:${v}`).join(';');
   const head = [
-    `<title>${escapeHtml(seo.title || settings.siteName)}</title>`,
-    `<meta name="description" content="${escapeHtml(seo.description)}">`,
+    `<title>${escapeHtml(meta.title)}</title>`,
+    `<meta name="description" content="${escapeHtml(meta.description)}">`,
     `<meta name="keywords" content="${escapeHtml(seo.keywords)}">`,
-    `<meta property="og:title" content="${escapeHtml(seo.title)}">`,
-    `<meta property="og:description" content="${escapeHtml(seo.description)}">`,
-    seo.ogImage ? `<meta property="og:image" content="${escapeHtml(seo.ogImage)}">` : '',
+    meta.noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${escapeHtml(origin + req.path)}">`,
+    `<meta property="og:type" content="${meta.type || 'website'}">`,
+    `<meta property="og:title" content="${escapeHtml(meta.title)}">`,
+    `<meta property="og:description" content="${escapeHtml(meta.description)}">`,
+    meta.image ? `<meta property="og:image" content="${escapeHtml(meta.image)}">` : '',
     `<meta name="twitter:card" content="summary_large_image">`,
-    `<meta name="theme-color" content="${escapeHtml(c.primary)}">`,
+    `<meta name="theme-color" content="${escapeHtml(c.bg)}">`,
+    `<link rel="manifest" href="/manifest.webmanifest">`,
     settings.favicon ? `<link rel="icon" href="${escapeHtml(settings.favicon)}">` : `<link rel="icon" href="/favicon.svg" type="image/svg+xml">`,
-    `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
-    fontUrl([theme.fonts.heading, theme.fonts.body]) ? `<link id="font-link" rel="stylesheet" href="${fontUrl([theme.fonts.heading, theme.fonts.body])}">` : '',
+    fontUrl([theme.fonts.heading, theme.fonts.body]) ? `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link id="font-link" rel="stylesheet" href="${fontUrl([theme.fonts.heading, theme.fonts.body])}">` : '',
     `<link rel="preconnect" href="https://images.unsplash.com">`,
     `<style id="theme-vars">:root{${vars};--font-heading:${stack(theme.fonts.heading).replace(/</g, '')};--font-body:${stack(theme.fonts.body).replace(/</g, '')};--radius:${Number(theme.radius) || 0}px}</style>`,
+    meta.jsonld ? `<script type="application/ld+json">${JSON.stringify(meta.jsonld).replace(/</g, '\\u003c')}</script>` : '',
     ga.enabled && /^G-[A-Z0-9]+$/i.test(ga.measurementId)
       ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga.measurementId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${ga.measurementId}');</script>`
       : '',
@@ -512,26 +778,45 @@ function renderIndex(data) {
     integrations.customScripts.head || '',
   ].join('\n    ');
   const html = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-  return html
-    .replace('<!--HEAD-->', head)
-    .replace('<!--BODY_END-->', integrations.customScripts.bodyEnd || '');
+  return {
+    status: routeMeta(data, req.path, origin) ? 200 : 404,
+    html: html.replace('<!--HEAD-->', head).replace('<!--BODY_END-->', integrations.customScripts.bodyEnd || '').replace(/\{\{V\}\}/g, ASSET_VERSION),
+  };
 }
 
-app.get(['/', '/index.html'], (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.type('html').send(renderIndex(db.get()));
-});
+const ASSET_VERSION = String(Date.now().toString(36));
 
 app.get(['/admin', '/admin/*'], (req, res, next) => {
   if (path.extname(req.path)) return next();
   res.sendFile(path.join(PUBLIC, 'admin', 'index.html'));
 });
 
-app.use('/vendor/lenis.min.js', express.static(path.join(ROOT, 'node_modules', 'lenis', 'dist', 'lenis.min.js')));
-app.use('/uploads', express.static(UPLOADS, { maxAge: '30d' }));
-app.use(express.static(PUBLIC, { index: false, maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0 }));
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send(`User-agent: *\nDisallow: /admin\nDisallow: /api/\nDisallow: /cart\nDisallow: /checkout\nDisallow: /account\n\nSitemap: ${req.protocol}://${req.get('host')}/sitemap.xml\n`);
+});
 
-app.use((req, res) => res.status(404).type('html').send(renderIndex(db.get())));
+app.get('/sitemap.xml', (req, res) => {
+  const data = db.get();
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const urls = ['/', ...Object.keys(STATIC_ROUTES).filter((k) => !NOINDEX.includes(k)).map((k) => `/${k}`),
+    ...data.pages.map((p) => `/${p.slug}`),
+    ...data.products.filter((p) => p.active).map((p) => `/products/${p.slug}`),
+    ...data.posts.filter((p) => p.published).map((p) => `/blog/${p.slug}`),
+    ...data.sections.filter((x) => x.type === 'services').flatMap((x) => x.items || []).filter((i) => i.slug).map((i) => `/services/${i.slug}`)];
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${[...new Set(urls)].map((u) => `  <url><loc>${escapeHtml(origin + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
+});
+
+app.use('/vendor/lenis.min.js', express.static(path.join(ROOT, 'node_modules', 'lenis', 'dist', 'lenis.min.js'), { maxAge: '7d' }));
+app.use('/uploads', express.static(UPLOADS, { maxAge: '30d' }));
+app.use(express.static(PUBLIC, { index: false, maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0 }));
+
+// Every other GET is a page of the single-page site.
+app.get('*', (req, res) => {
+  if (path.extname(req.path)) return res.status(404).end();
+  const { status, html } = renderIndex(db.get(), req);
+  res.set('Cache-Control', 'no-store');
+  res.status(status).type('html').send(html);
+});
 
 app.listen(PORT, () => {
   console.log(`\n  🌾 Bhoomi is running`);

@@ -3,10 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="stylesheet" href="/css/site.css">
+    <link rel="stylesheet" href="/css/site.css?v={{V}}">
     <!--HEAD-->
   </head>
   <body>
+    <a class="skip" href="#app">Skip to content</a>
     <header class="nav" id="nav"></header>
     <div class="menu" id="menu" aria-hidden="true"></div>
     <div id="ribbon"></div>
@@ -17,9 +18,13 @@
     <div id="floating"></div>
 
     <noscript><p style="padding:2rem;text-align:center">Please enable JavaScript to view this website.</p></noscript>
-    <script src="/vendor/lenis.min.js"></script>
-    <script src="/js/fonts.js"></script>
-    <script src="/js/site.js"></script>
+    <script src="/vendor/lenis.min.js" defer></script>
+    <script src="/js/fonts.js?v={{V}}" defer></script>
+    <script src="/js/i18n.js?v={{V}}" defer></script>
+    <script src="/js/core.js?v={{V}}" defer></script>
+    <script src="/js/sections.js?v={{V}}" defer></script>
+    <script src="/js/pages.js?v={{V}}" defer></script>
+    <script src="/js/app.js?v={{V}}" defer></script>
     <!--BODY_END-->
   </body>
 </html>

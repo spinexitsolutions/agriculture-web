@@ -49,23 +49,59 @@ The design follows Apple's design principles: content first, generous white spac
 
 - **Presets**: Orchard (default), Graphite (dark), Harvest, Monsoon and Soil. Colours, fonts and corner radius stay fully editable.
 
+## Pages
+
+| URL | What it is |
+| --- | --- |
+| `/` | Homepage built from CMS sections |
+| `/products`, `/products/:slug` | Shop with search, filters and sorting; product page with photos, MRP and discount, stock, quantity, pincode check and related items |
+| `/cart`, `/checkout`, `/order/:number`, `/track` | Cart, checkout (Razorpay or cash on delivery), order confirmation with a status timeline, and order tracking by order number + phone |
+| `/account` | Customer sign-up and sign-in, plus order history |
+| `/blog`, `/blog/:slug` | Journal with categories, search, tags and reading time |
+| `/services/:slug` | A detail page for each service in the bento grid |
+| `/farmers` | Farmer programme with three forms: registration, soil-test booking and call-back request |
+| `/mandi` | Live APMC mandi prices from data.gov.in, filterable by state, district and commodity |
+| `/advisory` | Crop calendar (Kharif/Rabi/Zaid), field advisories and government schemes |
+| `/about`, `/careers`, `/contact`, `/bulk` | About and team, jobs with an application form, contact, and a B2B bulk-quote form |
+| `/privacy-policy`, `/terms`, `/refund-policy`, `/shipping-policy` | Legal page templates. **Have a lawyer review them before you go live.** |
+
+Every URL gets its own title, description, share image and canonical tag from the server. Products and articles also get JSON-LD structured data. `sitemap.xml` and `robots.txt` are generated automatically.
+
+### Languages
+
+The site supports English, हिन्दी, मराठी and தமிழ். Buttons, forms and shop text are translated out of the box. To translate your own content, pick **Translating: Hindi** at the top of any admin content page; images, prices and links stay shared across languages. Visitors switch language from the globe icon. The built-in translations were written by AI, so ask a native speaker to review them.
+
+### Slow networks
+
+- Responsive images (`srcset`) with lazy loading
+- Data Saver and 2G/3G connections get smaller images and less motion
+- gzip compression
+- A service worker (over HTTPS) caches the site for fast repeat visits and basic offline use
+- Installable as a PWA (`manifest.webmanifest`)
+
 ## Admin panel (CMS)
 
-- **Pages & sections**: add, duplicate, delete, show/hide, and drag to reorder any of the 14 section types. Every text, image, list item and button can be edited. Wrap words in `*asterisks*` to highlight them in the accent colour.
-- **Live preview**: an instant desktop or mobile preview of unsaved changes, shown next to the editor.
-- **Theme & design**: 5 presets, 8 colour pickers, heading and body fonts (System/SF Pro or Google Fonts), corner radius, hero style, animation level, optional smooth scrolling, and custom CSS.
-- **Site settings**: brand, logo, favicon, announcement bar, navigation menu, SEO and OG image, contact details, Google Maps embed, social links, footer.
-- **Media library**: drag-and-drop uploads, **Unsplash search** (after you add an API key), add images by URL, and a picker inside every image field.
-- **Integrations & APIs** (keys stay on the server and are never sent to visitors):
-  - Weather: Open-Meteo works without a key, or use OpenWeatherMap
-  - Google Analytics 4
-  - Unsplash
-  - WhatsApp chat and ordering
-  - Webhook (Zapier, Make, n8n, CRM) with HMAC signing
-  - reCAPTCHA v3
-  - Custom `<head>` and `<body>` code
-  - **Custom APIs**: connect any JSON API (for example, mandi prices from data.gov.in). You set the method, headers, body, an `{{apiKey}}` placeholder, caching, and which fields to show. A **Test** button lets you check it. Public APIs appear as cards on the website through a secure server proxy.
-- **Messages** inbox, **subscribers** with CSV export, **account** (username and password), and **backup / restore / reset**.
+- **Content**: homepage sections (drag to reorder), pages, blog (Markdown editor) and media library. Everything is translatable.
+- **Shop**:
+  - **Products**: price, MRP, stock, photos, featured and visible toggles.
+  - **Orders**: filter by status, update the status with a note (the customer sees it on the tracking page), WhatsApp the customer, export CSV. Cancelling an order puts the stock back.
+  - **Customers**: list of customer accounts.
+  - **Shop settings**: delivery fee, free-delivery threshold, minimum order, COD, and serviceable pincodes (exact, `422*` prefix, or `400001-400104` range).
+- **Farmers & company**:
+  - **Requests & leads**: farmer registrations, soil tests, call-backs, bulk quotes and job applications, with status, notes, call/WhatsApp buttons and CSV export.
+  - **Crop calendar, advisories and schemes**.
+  - **Team and jobs**.
+- **Settings**: theme, site and languages, navigation, SEO, integrations, messages, subscribers, account, backup.
+- **Live preview** for content, theme and shop pages, on desktop or mobile, before you save.
+
+### Integrations (keys stay on the server)
+
+| Integration | How to set it up |
+| --- | --- |
+| **Razorpay** | Add the Key ID and Key Secret in Integrations, then click *Test connection*. Payments are verified server-side with an HMAC signature. Start with `rzp_test_` keys. |
+| **Mandi prices** | Get a free API key at [data.gov.in](https://data.gov.in). The default key is data.gov.in's public sample key, which returns only a few rows. |
+| Weather | Open-Meteo works without a key; OpenWeatherMap needs one. |
+| Others | Google Analytics 4, Unsplash, WhatsApp, webhooks (contact, lead, order and payment events, with HMAC signing), reCAPTCHA v3, custom `<head>`/`<body>` code, and custom JSON APIs. |
 
 ## Project structure
 
@@ -76,7 +112,15 @@ lib/db.js            JSON-file datastore (data/db.json, atomic writes)
 lib/auth.js          scrypt passwords + HMAC-signed session cookie
 public/index.html    Site shell
 public/css/site.css  Site styles (all colours/fonts come from theme variables)
-public/js/site.js    Section renderers + all animations
+public/js/i18n.js    Interface strings (en/hi/mr/ta) + content localisation
+public/js/core.js    Helpers: images, markdown, cart, forms
+public/js/sections.js Homepage section renderers
+public/js/pages.js   Route views (shop, checkout, blog, farmers, mandi…)
+public/js/app.js     Router, nav/footer, motion, live preview
+public/sw.js         Service worker (offline / repeat visits)
+lib/shop.js          Pricing, pincodes, orders, Razorpay
+lib/mandi.js         data.gov.in mandi prices
+lib/content.js       Seed catalogue, blog, pages, crops, schemes
 public/admin/        Admin SPA (schema-driven forms)
 data/                Your content (git-ignored) — back it up!
 uploads/             Uploaded images (git-ignored)
