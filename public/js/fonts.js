@@ -3,6 +3,9 @@
 (function (g) {
   const FONTS = {
     heading: {
+      'System': null,
+      'Inter Tight': 'wght@400..800',
+      'Inter': 'wght@400..800',
       'Fraunces': 'ital,wght@0,300..800;1,300..800',
       'Instrument Serif': 'ital@0;1',
       'DM Serif Display': 'ital@0;1',
@@ -15,6 +18,7 @@
       'Outfit': 'wght@300..800',
     },
     body: {
+      'System': null,
       'Manrope': 'wght@300..800',
       'Inter': 'ital,wght@0,300..800;1,300..800',
       'DM Sans': 'ital,wght@0,300..800;1,300..800',
@@ -28,12 +32,17 @@
 
   function fontUrl(families) {
     const all = Object.assign({}, FONTS.body, FONTS.heading);
-    const uniq = [...new Set(families.filter(Boolean))];
+    const uniq = [...new Set(families.filter((f) => f && f !== 'System'))];
+    if (!uniq.length) return '';
     const parts = uniq.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}${all[f] ? ':' + all[f] : ''}`);
     return `https://fonts.googleapis.com/css2?${parts.join('&')}&display=swap`;
   }
 
-  const api = { FONTS, fontUrl };
+  // CSS font stack for a family name; System maps to the platform UI font (SF Pro on Apple).
+  const SYSTEM = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif';
+  const stack = (f) => (!f || f === 'System' ? SYSTEM : `"${f}", ${SYSTEM}`);
+
+  const api = { FONTS, fontUrl, stack };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else g.BHOOMI_FONTS = api;
 })(this);

@@ -270,14 +270,14 @@
   const SCHEMAS = {
     hero: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Headline', { hint: EM }), F.area('subtitle', 'Subtitle'), row(F.link('primaryCta', 'Primary button'), F.link('secondaryCta', 'Secondary button')),
       F.list('images', 'Slideshow images', [F.img('src', 'Image'), F.text('caption', 'Caption')], { itemLabel: 'caption', addLabel: 'Add slide' }),
-      F.list('badges', 'Floating badges', [row(F.text('value', 'Value'), F.text('label', 'Label'))], { itemLabel: 'value', newItem: () => ({ value: '', label: '' }) }),
+      F.list('badges', 'Key facts', [row(F.text('value', 'Value'), F.text('label', 'Label'))], { itemLabel: 'value', newItem: () => ({ value: '', label: '' }) }),
       row(F.num('interval', 'Seconds per slide', { min: 2, max: 30 }), F.bool('showWeather', 'Show live weather chip'))],
     marquee: [F.strings('items', 'Scrolling words', { hint: 'One per line' }), F.num('speed', 'Speed (px/sec)', { min: 5, max: 200 })],
     about: [F.text('eyebrow', 'Eyebrow'), F.area('statement', 'Big statement', { rows: 4, hint: 'Lights up word-by-word as visitors scroll.' }), row(F.img('image', 'Main image'), F.img('secondaryImage', 'Small image')), F.text('imageAlt', 'Image alt text'),
       F.list('points', 'Key points', [F.text('title', 'Title'), F.area('text', 'Text')])],
     stats: [F.list('items', 'Counters', [row(F.num('value', 'Number'), F.text('suffix', 'Suffix (+, %, k)')), F.text('label', 'Label')], { itemLabel: (it) => `${it.value}${it.suffix || ''} — ${it.label}` })],
-    services: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.list('items', 'Services (stacking cards)', [row(F.text('tag', 'Number / tag'), F.text('title', 'Title')), F.area('text', 'Description'), F.img('image', 'Image')], { itemLabel: 'title' })],
-    process: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.list('steps', 'Steps (horizontal scroll)', [row(F.text('label', 'Label (e.g. Week 2)'), F.text('title', 'Title')), F.area('text', 'Text'), F.img('image', 'Image')], { itemLabel: 'title' })],
+    services: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.list('items', 'Services (bento tiles: large, small, small, wide…)', [row(F.text('tag', 'Label'), F.text('title', 'Title')), F.area('text', 'Description'), F.img('image', 'Image'), F.text('link', 'Learn more link (optional)')], { itemLabel: 'title' })],
+    process: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.list('steps', 'Steps (sticky scrollytelling)', [row(F.text('label', 'Label (e.g. Week 2)'), F.text('title', 'Title')), F.area('text', 'Text'), F.img('image', 'Image')], { itemLabel: 'title' })],
     products: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.text('subtitle', 'Subtitle'),
       F.list('items', 'Products', [row(F.text('name', 'Name'), F.text('category', 'Category (used for filters)')), row(F.text('price', 'Price'), F.text('unit', 'Unit'), F.text('badge', 'Badge')), F.img('image', 'Image')], { itemLabel: 'name', addLabel: 'Add product' })],
     live: [F.text('eyebrow', 'Eyebrow'), F.text('title', 'Title', { hint: EM }), F.area('text', 'Intro text'), F.bool('showWeather', 'Show weather card (Integrations → Weather)'), { k: 'apiIds', t: 'apis', label: 'Custom API cards' }],
@@ -359,7 +359,7 @@
       const checks = [
         [!state.user.mustChange, 'Change the default admin password', '#/account'],
         [d.settings.siteName !== 'Bhoomi' || d.settings.contact.email !== 'hello@bhoomi.farm', 'Add your brand name & contact details', '#/settings'],
-        [d.theme.preset !== 'harvest' || d.theme.colors.primary !== '#1f3d2b', 'Pick a theme & fonts', '#/theme'],
+        [d.theme.preset !== 'orchard' || d.theme.colors.primary !== '#1f7a3a', 'Pick a theme & fonts', '#/theme'],
         [d.integrations.googleAnalytics.enabled, 'Connect Google Analytics', '#/integrations'],
         [d.integrations.unsplash.enabled, 'Connect Unsplash for image search', '#/integrations'],
         [d.media.length > 0, 'Upload your own photos', '#/media'],
@@ -453,9 +453,10 @@
       const COLORS = [['primary', 'Primary'], ['primaryContrast', 'Text on primary'], ['accent', 'Accent'], ['bg', 'Background'], ['surface', 'Surface'], ['text', 'Text'], ['muted', 'Muted text'], ['border', 'Borders']];
       const FONTS = window.BHOOMI_FONTS.FONTS;
       const draw = () => {
-        const sample = h('div', { class: 'font-sample', style: { fontFamily: `'${t.fonts.heading}'`, background: t.colors.bg, color: t.colors.text } }, 'We grow ', h('em', { style: { color: t.colors.accent } }, 'tomorrow'), h('div', { style: { fontFamily: `'${t.fonts.body}'`, fontSize: '14px', marginTop: '8px', color: t.colors.muted } }, 'Regenerative farming, precision agronomy and farm-to-door produce.'));
+        const stack = window.BHOOMI_FONTS.stack;
+        const sample = h('div', { class: 'font-sample', style: { fontFamily: stack(t.fonts.heading), fontWeight: 700, letterSpacing: '-0.035em', background: t.colors.bg, color: t.colors.text } }, 'Food, grown ', h('span', { style: { background: `linear-gradient(100deg, ${t.colors.primary}, ${t.colors.accent})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' } }, 'right.'), h('div', { style: { fontFamily: stack(t.fonts.body), fontWeight: 400, letterSpacing: '-0.02em', fontSize: '15px', marginTop: '8px', color: t.colors.muted } }, 'Regenerative farming and farm-to-door produce.'));
         const fontLink = $('#admin-font-preview') || document.head.appendChild(h('link', { id: 'admin-font-preview', rel: 'stylesheet' }));
-        fontLink.href = window.BHOOMI_FONTS.fontUrl([t.fonts.heading, t.fonts.body]);
+        fontLink.href = window.BHOOMI_FONTS.fontUrl([t.fonts.heading, t.fonts.body]) || 'data:text/css,';
         box.replaceChildren(
           card('Theme presets', h('div', { class: 'presets' }, Object.entries(presets).map(([key, p]) => h('button', { class: `preset${t.preset === key ? ' is-active' : ''}`, onClick: () => { t.preset = key; t.colors = clone(p.colors); t.fonts = clone(p.fonts); changed(); draw(); } },
             h('div', { class: 'preset__sw' }, ['primary', 'accent', 'bg', 'surface', 'text'].map((c) => h('span', { style: { background: p.colors[c] } }))),
@@ -469,9 +470,9 @@
                 { k: 'radius', t: 'range', label: 'Corner radius', min: 0, max: 40, unit: 'px' },
               ], t, changed, draw)))),
           card('Layout & motion', renderForm([
-            row(F.sel('heroStyle', 'Hero style', [['reveal', 'Cinematic — full-screen, shrinks on scroll'], ['split', 'Split — text + arch image'], ['minimal', 'Minimal — centred headline']]),
-              F.sel('animations', 'Animations', [['full', 'Full — parallax, smooth scroll, all effects'], ['reduced', 'Reduced — simple fades only'], ['none', 'None']])),
-            row(F.bool('smoothScroll', 'Smooth (inertia) scrolling'), F.bool('customCursor', 'Custom cursor'), F.bool('grain', 'Film grain texture'), F.bool('preloader', 'Intro preloader')),
+            row(F.sel('heroStyle', 'Hero style', [['reveal', 'Product — centred headline, photo zooms to full-bleed'], ['split', 'Split — headline beside a framed photo'], ['minimal', 'Immersive — full-screen photo with text on top']]),
+              F.sel('animations', 'Animations', [['full', 'Full — scroll zoom, parallax, storytelling'], ['reduced', 'Reduced — gentle fades only'], ['none', 'None']])),
+            F.bool('smoothScroll', 'Inertia smooth scrolling (off feels most native)'),
           ], t, changed)),
           card('Custom CSS', renderForm([F.code('customCss', 'Extra CSS (applied on top of the theme)', { placeholder: '.hero__title { letter-spacing: -0.05em; }', hint: 'Advanced. Variables available: --primary, --accent, --bg, --surface, --text, --muted, --radius, --font-heading, --font-body.' })], t, changed)));
       };
@@ -492,7 +493,7 @@
           card('Contact details', renderForm([row(F.text('contact.email', 'Email'), F.text('contact.phone', 'Phone')), F.area('contact.address', 'Address', { rows: 2 }), F.text('contact.hours', 'Opening hours'), F.area('contact.mapEmbed', 'Google Maps embed', { hint: 'Google Maps → Share → Embed a map → paste the <iframe> code or its src URL.' })], s, ch))),
         h('div', { class: 'grid-2' },
           card('Social links', renderForm(['instagram', 'facebook', 'twitter', 'youtube', 'linkedin'].map((k) => F.text(`social.${k}`, k[0].toUpperCase() + k.slice(1), { placeholder: 'https://… (leave empty to hide)' })), s, ch)),
-          card('Footer', renderForm([F.text('footer.bigText', 'Giant footer word'), F.area('footer.text', 'Footer text'), F.text('footer.copyright', 'Copyright', { hint: '{year} is replaced with the current year.' })], s, ch))));
+          card('Footer', renderForm([F.area('footer.text', 'Footer note'), F.text('footer.copyright', 'Copyright', { hint: '{year} is replaced with the current year.' })], s, ch))));
     },
 
     media() {

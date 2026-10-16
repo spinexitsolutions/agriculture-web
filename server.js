@@ -480,7 +480,7 @@ app.use('/api/admin', admin);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 // ---------- pages ----------
-const { fontUrl } = require('./public/js/fonts.js');
+const { fontUrl, stack } = require('./public/js/fonts.js');
 
 function renderIndex(data) {
   const { settings, theme, integrations } = data;
@@ -499,9 +499,9 @@ function renderIndex(data) {
     `<meta name="theme-color" content="${escapeHtml(c.primary)}">`,
     settings.favicon ? `<link rel="icon" href="${escapeHtml(settings.favicon)}">` : `<link rel="icon" href="/favicon.svg" type="image/svg+xml">`,
     `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
-    `<link id="font-link" rel="stylesheet" href="${fontUrl([theme.fonts.heading, theme.fonts.body])}">`,
+    fontUrl([theme.fonts.heading, theme.fonts.body]) ? `<link id="font-link" rel="stylesheet" href="${fontUrl([theme.fonts.heading, theme.fonts.body])}">` : '',
     `<link rel="preconnect" href="https://images.unsplash.com">`,
-    `<style id="theme-vars">:root{${vars};--font-heading:'${theme.fonts.heading}';--font-body:'${theme.fonts.body}';--radius:${Number(theme.radius) || 0}px}</style>`,
+    `<style id="theme-vars">:root{${vars};--font-heading:${stack(theme.fonts.heading).replace(/</g, '')};--font-body:${stack(theme.fonts.body).replace(/</g, '')};--radius:${Number(theme.radius) || 0}px}</style>`,
     ga.enabled && /^G-[A-Z0-9]+$/i.test(ga.measurementId)
       ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga.measurementId}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${ga.measurementId}');</script>`
       : '',
