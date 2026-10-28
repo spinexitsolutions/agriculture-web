@@ -6,3 +6,6 @@ uploads/*
 *.log
 .DS_Store
 *.zip
+marketing/reel/assets/
+marketing/reel/frames/
+marketing/reel/out/
