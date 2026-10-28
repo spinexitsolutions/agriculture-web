@@ -1,0 +1,351 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bhoomi — Reel</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root {
+    --ink: #0b0f0c; --cream: #f4f1ea; --green: #1f7a3a; --lime: #a8e063; --gold: #e9b44c; --forest: #0f2a1a;
+    --serif: 'Instrument Serif', 'Noto Serif Devanagari', 'Noto Serif Tamil', Georgia, serif;
+    --sans: 'Inter Tight', 'Noto Serif Devanagari', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; overflow: hidden; visibility: hidden; will-change: clip-path; }
+  .abs { position: absolute; }
+  .serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; }
+  .serif i, .it { font-style: italic; }
+  .kicker { font-family: var(--sans); font-weight: 600; font-size: 26px; letter-spacing: .32em; text-transform: uppercase; }
+  .mask { display: inline-block; overflow: hidden; vertical-align: bottom; padding: 0 .04em .12em; margin-bottom: -.12em; }
+  .mask > span { display: inline-block; will-change: transform; }
+  .center-x { left: 0; right: 0; text-align: center; }
+  img { display: block; }
+
+  /* phone mockup */
+  .phone { position: absolute; width: 684px; height: 1429px; border-radius: 112px; background: #0d0d0e; padding: 22px;
+    box-shadow: 0 0 0 3px #2a2a2c, 0 0 0 6px #0d0d0e, 0 80px 140px -40px rgba(0,0,0,.55), inset 0 0 6px rgba(255,255,255,.15); transform-style: preserve-3d; }
+  .phone__screen { position: relative; width: 100%; height: 100%; border-radius: 90px; overflow: hidden; background: #fff; }
+  .phone__screen img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .phone__island { position: absolute; top: 46px; left: 50%; width: 190px; height: 54px; margin-left: -95px; border-radius: 30px; background: #000; z-index: 3; }
+  .glare { position: absolute; inset: 0; border-radius: 90px; background: linear-gradient(115deg, rgba(255,255,255,.18), rgba(255,255,255,0) 35%); z-index: 2; pointer-events: none; }
+
+  .chip { position: absolute; display: flex; align-items: center; gap: 16px; padding: 22px 32px 22px 22px; border-radius: 999px; background: #fff;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.25); font-size: 34px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
+  .chip b { width: 52px; height: 52px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 28px; }
+  .card { position: absolute; border-radius: 48px; overflow: hidden; background: #fff; box-shadow: 0 60px 120px -40px rgba(0,0,0,.6); }
+  .card img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .label { position: absolute; font-family: var(--sans); font-weight: 600; font-size: 30px; letter-spacing: -.01em; }
+  .browser { position: absolute; left: 50px; width: 980px; border-radius: 26px; overflow: hidden; background: #fff; box-shadow: 0 60px 120px -40px rgba(0,0,0,.35); }
+  .browser__bar { height: 52px; background: #ecebe7; display: flex; align-items: center; gap: 10px; padding: 0 22px; }
+  .browser__bar i { width: 15px; height: 15px; border-radius: 50%; background: #d5d2ca; }
+  .browser__bar span { margin-left: 18px; flex: 1; height: 30px; border-radius: 9px; background: #fff; font-size: 17px; color: #6e6e73; display: flex; align-items: center; padding-left: 14px; }
+  .browser__view { position: relative; width: 980px; height: 612px; overflow: hidden; }
+  .browser__view img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+  .cursor { position: absolute; width: 42px; height: 42px; z-index: 5; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
+  .tab { font-family: var(--sans); font-size: 34px; font-weight: 600; padding: 14px 26px; border-radius: 999px; color: rgba(11,15,12,.45); }
+  .pill { display: inline-flex; align-items: center; gap: 14px; padding: 26px 46px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 40px; font-weight: 700; letter-spacing: -.01em; }
+
+  #grain { position: absolute; inset: -50%; pointer-events: none; z-index: 100; opacity: .085; mix-blend-mode: overlay; }
+  #vignette { position: absolute; inset: 0; pointer-events: none; z-index: 99; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.28)); }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- 1 · INTRO -->
+  <section class="scene" id="s1" style="background:var(--ink);color:var(--cream)">
+    <div class="abs" id="s1-glow" style="inset:0;background:radial-gradient(circle at 50% 46%, rgba(31,122,58,.55), rgba(11,15,12,0) 55%)"></div>
+    <div class="abs" id="s1-line" style="left:140px;right:140px;top:1060px;height:2px;background:var(--gold);transform-origin:50% 50%"></div>
+    <div class="abs center-x serif" id="s1-word" style="top:730px;font-size:250px;line-height:1"></div>
+    <div class="abs center-x" id="s1-sub" style="top:1110px;font-size:44px;font-weight:500;letter-spacing:-.01em;opacity:.92">Agriculture, <span class="serif it" style="font-size:58px;color:var(--gold)">reimagined</span> for the web.</div>
+    <div class="abs center-x kicker" id="s1-k" style="top:560px;color:var(--lime);opacity:.85">Introducing</div>
+  </section>
+
+  <!-- 2 · HERO ART -->
+  <section class="scene" id="s2" style="background:#f3e2bd">
+    <img class="abs" id="s2-art" src="assets/art-field.svg" style="inset:0;width:1080px;height:1920px;object-fit:cover">
+    <div class="abs" style="inset:0;background:linear-gradient(180deg,rgba(244,241,234,.0) 40%,rgba(15,42,26,.55))"></div>
+    <div class="abs center-x kicker" id="s2-k" style="top:300px;color:#5a3f12">Bhoomi Farms · Nashik</div>
+    <div class="abs center-x serif" id="s2-h" style="top:600px;font-size:230px;line-height:.95;color:#1b2a12">
+      <div><span class="mask"><span>Food,</span></span></div>
+      <div><span class="mask"><span>grown</span></span></div>
+      <div><span class="mask"><span class="it" style="color:#1f7a3a">right.</span></span></div>
+    </div>
+    <div class="abs center-x" id="s2-sub" style="top:1560px;font-size:40px;color:#fff;font-weight:500;line-height:1.35">Regenerative farming &amp; farm-to-door produce<br>from 2,400 farmers.</div>
+  </section>
+
+  <!-- 3 · PHONE SCROLL -->
+  <section class="scene" id="s3" style="background:var(--cream)">
+    <div class="abs center-x serif" id="s3-h" style="top:120px;font-size:104px;line-height:1;color:var(--ink)">A website that<br>feels like an <i style="color:var(--green)">app.</i></div>
+    <div id="s3-wrap" class="abs" style="left:198px;top:400px;perspective:2400px">
+      <div class="phone" id="s3-phone"><div class="phone__island"></div><div class="phone__screen"><img id="s3-screen" alt=""><div class="glare"></div></div></div>
+    </div>
+    <div class="chip" id="c1" style="left:40px;top:760px"><b>✓</b>Apple-grade design</div>
+    <div class="chip" id="c2" style="right:40px;top:1120px"><b>✓</b>Scroll storytelling</div>
+    <div class="chip" id="c3" style="left:60px;top:1480px"><b>✓</b>Fast on 3G networks</div>
+  </section>
+
+  <!-- 4 · SHOP -->
+  <section class="scene" id="s4" style="background:var(--ink);color:#fff">
+    <div class="abs" style="inset:0;background:radial-gradient(circle at 50% 70%, rgba(31,122,58,.45), rgba(0,0,0,0) 60%)"></div>
+    <div class="abs center-x kicker" id="s4-k" style="top:170px;color:var(--lime)">Online shop · built in</div>
+    <div class="abs center-x serif" id="s4-h" style="top:240px;font-size:180px;line-height:1"><span class="mask"><span>Sell</span></span> <span class="mask"><span class="it" style="color:var(--gold)">directly.</span></span></div>
+    <div id="s4-cards" class="abs" style="left:0;top:560px;width:1080px;height:1100px;perspective:2600px">
+      <div class="card" id="s4a" style="left:325px;top:40px;width:430px;height:931px"><img src="assets/m-product.jpg"></div>
+      <div class="card" id="s4b" style="left:325px;top:40px;width:430px;height:931px"><img src="assets/m-cart.jpg"></div>
+      <div class="card" id="s4c" style="left:325px;top:40px;width:430px;height:931px"><img src="assets/m-order.jpg"></div>
+    </div>
+    <div class="abs center-x" id="s4-sub" style="top:1700px;font-size:36px;font-weight:500;color:rgba(255,255,255,.8)">Catalogue · Cart · UPI &amp; COD · Order tracking</div>
+  </section>
+
+  <!-- 5 · LANGUAGES -->
+  <section class="scene" id="s5" style="background:var(--cream);color:var(--ink)">
+    <div class="abs center-x kicker" style="top:190px;color:var(--green)">Speaks your farmers’ language</div>
+    <div class="abs" id="s5-lines" style="left:60px;right:60px;top:290px;height:360px"></div>
+    <div class="abs center-x" id="s5-tabs" style="top:700px;display:flex;justify-content:center;gap:10px">
+      <span class="tab" data-l="0">EN</span><span class="tab" data-l="1">हिंदी</span><span class="tab" data-l="2">मराठी</span><span class="tab" data-l="3">தமிழ்</span>
+    </div>
+    <div class="abs" id="s5-under" style="top:770px;height:4px;border-radius:4px;background:var(--green)"></div>
+    <div class="abs" id="s5-phonewrap" style="left:198px;top:880px">
+      <div class="phone"><div class="phone__island"></div><div class="phone__screen" id="s5-screen">
+        <img src="assets/m-hero-en.jpg" class="abs" style="inset:0" data-i="0"><img src="assets/m-hero-hi.jpg" class="abs" style="inset:0" data-i="1">
+        <img src="assets/m-hero-mr.jpg" class="abs" style="inset:0" data-i="2"><img src="assets/m-hero-ta.jpg" class="abs" style="inset:0" data-i="3"><div class="glare"></div></div></div>
+    </div>
+  </section>
+
+  <!-- 6 · FARMERS -->
+  <section class="scene" id="s6" style="background:var(--forest);color:#fff">
+    <img class="abs" src="assets/art-green.svg" style="inset:0;width:1080px;height:1920px;object-fit:cover;opacity:.18">
+    <div class="abs center-x kicker" style="top:170px;color:var(--lime)">Farmer tools</div>
+    <div class="abs center-x serif" id="s6-h" style="top:240px;font-size:170px;line-height:1"><span class="mask"><span>Built for</span></span><br><span class="mask"><span class="it" style="color:var(--lime)">farmers.</span></span></div>
+    <div class="card" id="s6a" style="left:60px;top:640px;width:470px;height:760px"><img src="assets/m-mandi.jpg" style="object-position:0 8%"></div>
+    <div class="card" id="s6b" style="left:550px;top:640px;width:470px;height:760px"><img src="assets/m-farmers.jpg"></div>
+    <div class="card" id="s6c" style="left:60px;top:1430px;width:960px;height:330px"><img src="assets/d-advisory.jpg" style="object-position:0 62%"></div>
+    <div class="label" id="l6a" style="left:84px;top:1356px">Live mandi prices</div>
+    <div class="label" id="l6b" style="left:574px;top:1356px">Soil test &amp; call-back</div>
+    <div class="label" id="l6c" style="left:84px;top:1780px">Crop calendar · Advisories · Govt. schemes</div>
+  </section>
+
+  <!-- 7 · ADMIN -->
+  <section class="scene" id="s7" style="background:var(--cream);color:var(--ink)">
+    <div class="abs center-x kicker" style="top:220px;color:var(--green)">Full CMS · no code</div>
+    <div class="abs center-x serif" id="s7-h" style="top:290px;font-size:140px;line-height:1">Run it all from<br><i style="color:var(--green)">one dashboard.</i></div>
+    <div class="browser" id="s7-browser" style="top:760px">
+      <div class="browser__bar"><i></i><i></i><i></i><span>bhoomi.farm/admin</span></div>
+      <div class="browser__view" id="s7-view">
+        <img src="assets/a-dashboard.jpg" data-i="0"><img src="assets/a-orders.jpg" data-i="1"><img src="assets/a-theme.jpg" data-i="2">
+        <svg class="cursor" id="s7-cursor" viewBox="0 0 24 24"><path d="M4 2l16 9-7 2-3 7z" fill="#111" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="abs center-x" id="s7-list" style="top:1480px;font-size:38px;font-weight:600;line-height:1.75"></div>
+  </section>
+
+  <!-- 8 · OUTRO -->
+  <section class="scene" id="s8" style="background:var(--ink);color:var(--cream)">
+    <div class="abs" style="inset:0;background:radial-gradient(circle at 50% 40%, rgba(31,122,58,.5), rgba(0,0,0,0) 55%)"></div>
+    <svg class="abs" id="s8-logo" viewBox="0 0 24 24" style="left:420px;top:470px;width:240px;height:240px" fill="none" stroke="#a8e063" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+      <path id="s8-p1" d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path id="s8-p2" d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+    </svg>
+    <div class="abs center-x serif" id="s8-word" style="top:760px;font-size:250px;line-height:1"></div>
+    <div class="abs center-x" id="s8-tag" style="top:1050px;font-size:42px;font-weight:500;opacity:.85">Regenerative farming, <span class="serif it" style="font-size:54px;color:var(--gold)">rooted in tomorrow.</span></div>
+    <div class="abs center-x" id="s8-cta" style="top:1250px"><span class="pill">Link in bio →</span></div>
+    <div class="abs center-x kicker" id="s8-foot" style="top:1720px;font-size:22px;color:rgba(244,241,234,.55)">Website · Shop · CMS · 4 languages</div>
+  </section>
+
+  <div id="vignette"></div>
+  <canvas id="grain" width="540" height="960"></canvas>
+</div>
+
+<script>
+/* ---------- tiny timeline engine (deterministic: seek(t) renders time t) ---------- */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const E = {
+  out: (t) => 1 - Math.pow(1 - t, 3),
+  expo: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  inOut: (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  expoInOut: (t) => (t === 0 ? 0 : t === 1 ? 1 : t < .5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2),
+  back: (t) => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); },
+};
+const p = (t, a, b, ease = E.out) => ease(clamp((t - a) / (b - a)));
+const lerp = (a, b, k) => a + (b - a) * k;
+
+// Scene windows (seconds). Each scene wipes in over the previous one.
+const S = { s1: [0, 3.0], s2: [2.6, 6.4], s3: [5.5, 10.6], s4: [10.2, 14.4], s5: [14.0, 17.8], s6: [17.4, 21.0], s7: [20.6, 24.0], s8: [23.6, 27.5] };
+const DURATION = 27.5;
+
+const split = (el, text, cls = '') => { el.innerHTML = [...text].map((c) => `<span class="mask"><span class="${cls}">${c}</span></span>`).join(''); return $$(`#${el.id} .mask > span`); };
+const s1Letters = split($('#s1-word'), 'Bhoomi');
+const s8Letters = split($('#s8-word'), 'Bhoomi');
+
+const LANGS = [
+  'Food, grown <i style="color:var(--green)">right.</i>',
+  'खाना, सही <i style="color:var(--green)">तरीके से</i> उगाया।',
+  'अन्न, योग्य <i style="color:var(--green)">पद्धतीने</i> पिकवलेले.',
+  'உணவு, <i style="color:var(--green)">சரியாக</i> விளைந்தது.',
+];
+$('#s5-lines').innerHTML = LANGS.map((h, i) => `<div class="abs serif center-x" data-line="${i}" style="top:0;font-size:${i ? 112 : 150}px;line-height:1.15;${i === 3 ? 'font-size:100px;' : ''}">${h}</div>`).join('');
+
+const FEATURES = ['Products · Orders · Customers', 'Blog · Pages · Media', 'Themes · Translations · APIs'];
+$('#s7-list').innerHTML = FEATURES.map((f) => `<div class="feat">${f}</div>`).join('');
+
+// Phone scroll frames
+const SCROLL_FRAMES = 120;
+const scrollSrc = (i) => `assets/scroll/${String(i).padStart(3, '0')}.jpg`;
+const preload = [...Array(SCROLL_FRAMES).keys()].map((i) => { const im = new Image(); im.src = scrollSrc(i); return im; });
+
+// Film grain
+const g = $('#grain'); const gx = g.getContext('2d'); const gimg = gx.createImageData(g.width, g.height);
+function grain(frame) {
+  let s = (frame * 9301 + 49297) % 233280;
+  for (let i = 0; i < gimg.data.length; i += 4) {
+    s = (s * 9301 + 49297) % 233280; const v = (s / 233280) * 255;
+    gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255;
+  }
+  gx.putImageData(gimg, 0, 0);
+}
+
+function wipe(el, t, [a], dir = 'up') {
+  // Scenes enter with a masked wipe (expo in-out) for an editorial cut.
+  const k = p(t, a, a + .55, E.expoInOut);
+  el.style.clipPath = dir === 'up' ? `inset(${(1 - k) * 100}% 0 0 0)` : dir === 'circle' ? `circle(${k * 120}% at 50% 50%)` : `inset(0 ${(1 - k) * 100}% 0 0)`;
+}
+
+function seek(t, frame = Math.round(t * 30)) {
+  for (const [id, [a, b]] of Object.entries(S)) $('#' + id).style.visibility = t >= a && t < b ? 'visible' : 'hidden';
+
+  /* 1 · intro */
+  if (t < S.s1[1]) {
+    $('#s1-line').style.transform = `scaleX(${p(t, .1, .9, E.expo) * (1 - p(t, 2.2, 2.8, E.inOut))})`;
+    s1Letters.forEach((el, i) => { const k = p(t, .25 + i * .07, 1.25 + i * .07, E.expo); el.style.transform = `translateY(${(1 - k) * 110}%)`; el.style.filter = `blur(${(1 - k) * 8}px)`; });
+    const k = p(t, 1.15, 1.9);
+    $('#s1-sub').style.opacity = k * .92; $('#s1-sub').style.transform = `translateY(${(1 - k) * 30}px)`;
+    $('#s1-k').style.opacity = p(t, .5, 1.2) * .85; $('#s1-k').style.letterSpacing = `${lerp(.6, .32, p(t, .5, 1.6, E.expo))}em`;
+    const z = 1 + p(t, 0, 3, (x) => x) * .06; $('#s1-word').style.transform = `scale(${z})`;
+    $('#s1-glow').style.opacity = p(t, 0, 1.5);
+  }
+
+  /* 2 · hero art (circle reveal) */
+  if (t >= S.s2[0] && t < S.s2[1]) {
+    wipe($('#s2'), t, S.s2, 'circle');
+    $('#s2').style.zIndex = 5; // stays above the phone scene while it shrinks into the screen
+    $('#s2-art').style.transform = `scale(${1.18 - p(t, 2.6, 6.4, (x) => x) * .14})`;
+    $$('#s2-h .mask > span').forEach((el, i) => { const k = p(t, 3.0 + i * .14, 3.9 + i * .14, E.expo); el.style.transform = `translateY(${(1 - k) * 105}%)`; });
+    $('#s2-k').style.opacity = p(t, 2.9, 3.5);
+    const k = p(t, 3.8, 4.5); $('#s2-sub').style.opacity = k; $('#s2-sub').style.transform = `translateY(${(1 - k) * 30}px)`;
+    // shrink into the phone screen of scene 3
+    const m = p(t, 5.55, 6.35, E.expoInOut);
+    $('#s2').style.clipPath = m > 0 ? `inset(${m * 422}px ${m * 220}px ${m * 113}px ${m * 220}px round ${m * 90}px)` : $('#s2').style.clipPath;
+  }
+
+  /* 3 · phone scroll */
+  if (t >= S.s3[0] && t < S.s3[1]) {
+    $('#s3').style.clipPath = 'none';
+    const fi = Math.round(p(t, 6.5, 10.1, (x) => x) * (SCROLL_FRAMES - 1));
+    const src = scrollSrc(fi); if (!$('#s3-screen').src.endsWith(src)) $('#s3-screen').src = src;
+    const ry = lerp(-9, 7, p(t, 6.0, 10.6, E.inOut)); const rx = 4 + Math.sin(t * 1.3) * 1.5;
+    const enter = p(t, 6.0, 6.7, E.expo);
+    $('#s3-phone').style.transform = `rotateY(${ry}deg) rotateX(${rx}deg) translateY(${(1 - enter) * 80}px)`;
+    $$('#s3-h').forEach((el) => { const k = p(t, 6.3, 7.0, E.expo); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 40}px)`; });
+    ['#c1', '#c2', '#c3'].forEach((id, i) => {
+      const a = 7.0 + i * 1.0; const k = p(t, a, a + .5, E.back); const out = p(t, 10.0, 10.4);
+      $(id).style.opacity = clamp(k * 2) * (1 - out); $(id).style.transform = `scale(${.6 + .4 * k}) translateY(${-Math.sin((t - a) * 1.6) * 6}px)`;
+    });
+  }
+
+  /* 4 · shop (cards fan out in 3D) */
+  if (t >= S.s4[0] && t < S.s4[1]) {
+    wipe($('#s4'), t, S.s4, 'up');
+    $$('#s4-h .mask > span').forEach((el, i) => { const k = p(t, 10.5 + i * .12, 11.3 + i * .12, E.expo); el.style.transform = `translateY(${(1 - k) * 105}%)`; });
+    $('#s4-k').style.opacity = p(t, 10.6, 11.1);
+    const cfg = [['#s4a', -275, -9, 70], ['#s4b', 0, 0, 0], ['#s4c', 275, 9, 70]];
+    cfg.forEach(([id, x, r, y], i) => {
+      const k = p(t, 10.8 + i * .18, 11.9 + i * .18, E.expo);
+      const drift = Math.sin((t - 11) * 1.2 + i) * 8;
+      $(id).style.transform = `translate3d(${x * k}px, ${(1 - k) * 1500 + y * k + drift}px, ${i === 1 ? 80 : 0}px) rotateZ(${r * k}deg) rotateY(${-r * 1.2 * k}deg) scale(${i === 1 ? 1.06 : .84})`;
+      $(id).style.zIndex = i === 1 ? 3 : 1;
+    });
+    const k = p(t, 12.2, 12.8); $('#s4-sub').style.opacity = k; $('#s4-sub').style.transform = `translateY(${(1 - k) * 24}px)`;
+  }
+
+  /* 5 · languages */
+  if (t >= S.s5[0] && t < S.s5[1]) {
+    wipe($('#s5'), t, S.s5, 'up');
+    const step = 0.82; const t0 = 14.5;
+    const idx = clamp(Math.floor((t - t0) / step), 0, 3);
+    $$('#s5-lines [data-line]').forEach((el) => {
+      const i = Number(el.dataset.line); const a = t0 + i * step;
+      const kin = i === 0 ? p(t, 14.3, 14.9, E.expo) : p(t, a, a + .38, E.expo);
+      const kout = i === 3 ? 0 : p(t, a + step, a + step + .3, E.inOut);
+      el.style.opacity = kin * (1 - kout);
+      el.style.transform = `translateY(${(1 - kin) * 60 - kout * 60}px)`;
+      el.style.filter = `blur(${(1 - kin) * 14 + kout * 14}px)`;
+    });
+    const tabs = $$('#s5-tabs .tab');
+    tabs.forEach((el, i) => { el.style.color = i === idx ? '#0b0f0c' : 'rgba(11,15,12,.4)'; });
+    const r = tabs[idx].getBoundingClientRect(); const sr = $('#stage').getBoundingClientRect();
+    const u = $('#s5-under'); const prevR = tabs[Math.max(0, idx - 1)].getBoundingClientRect();
+    const mk = idx === 0 ? 1 : p(t, t0 + idx * step, t0 + idx * step + .35, E.expoInOut);
+    u.style.left = `${lerp(prevR.left, r.left, mk) - sr.left + 26}px`; u.style.width = `${lerp(prevR.width, r.width, mk) - 52}px`;
+    $$('#s5-screen img').forEach((im) => { const i = Number(im.dataset.i); im.style.opacity = i < idx || i === 0 ? 1 : i === idx ? p(t, t0 + idx * step, t0 + idx * step + .3) : 0; });
+    const pk = p(t, 14.2, 15.0, E.expo); $('#s5-phonewrap').style.transform = `translateY(${(1 - pk) * 500 + (t - 14) * -18}px)`;
+  }
+
+  /* 6 · farmers */
+  if (t >= S.s6[0] && t < S.s6[1]) {
+    wipe($('#s6'), t, S.s6, 'up');
+    $$('#s6-h .mask > span').forEach((el, i) => { const k = p(t, 17.7 + i * .14, 18.5 + i * .14, E.expo); el.style.transform = `translateY(${(1 - k) * 105}%)`; });
+    [['#s6a', '#l6a', 18.2], ['#s6b', '#l6b', 18.4], ['#s6c', '#l6c', 18.7]].forEach(([c, l, a]) => {
+      const k = p(t, a, a + .8, E.expo);
+      $(c).style.transform = `translateY(${(1 - k) * 260}px) scale(${.92 + .08 * k})`; $(c).style.opacity = clamp(k * 1.6);
+      $(l).style.opacity = p(t, a + .4, a + .9); $(l).style.transform = `translateY(${(1 - p(t, a + .4, a + .9)) * 16}px)`;
+    });
+    // slow push-in on the mandi screenshot
+    $('#s6a img').style.transform = `scale(${1 + p(t, 18.2, 21, (x) => x) * .06})`;
+  }
+
+  /* 7 · admin */
+  if (t >= S.s7[0] && t < S.s7[1]) {
+    wipe($('#s7'), t, S.s7, 'up');
+    const hk = p(t, 20.9, 21.6, E.expo); $('#s7-h').style.opacity = hk; $('#s7-h').style.transform = `translateY(${(1 - hk) * 40}px)`;
+    const bk = p(t, 21.0, 21.8, E.expo); $('#s7-browser').style.transform = `translateY(${(1 - bk) * 300}px) scale(${.94 + .06 * bk})`; $('#s7-browser').style.opacity = clamp(bk * 1.5);
+    const views = $$('#s7-view img');
+    const cut = [21.0, 22.1, 23.0];
+    views.forEach((im, i) => { const k = p(t, cut[i], cut[i] + .45, E.expoInOut); im.style.clipPath = i ? `inset(0 0 0 ${(1 - k) * 100}%)` : 'none'; im.style.zIndex = i; });
+    // cursor path: clicks "Orders", then "Theme"
+    const c = $('#s7-cursor');
+    const pts = [[700, 520, 21.2], [110, 230, 21.9], [110, 230, 22.1], [140, 445, 22.75], [140, 445, 23.0], [620, 300, 23.7]];
+    let x = pts[0][0]; let y = pts[0][1];
+    for (let i = 1; i < pts.length; i++) { const k = p(t, pts[i - 1][2], pts[i][2], E.inOut); if (t >= pts[i - 1][2]) { x = lerp(pts[i - 1][0], pts[i][0], k); y = lerp(pts[i - 1][1], pts[i][1], k); } }
+    const click = [22.0, 22.95].some((ct) => t > ct && t < ct + .12);
+    c.style.left = `${x}px`; c.style.top = `${y}px`; c.style.transform = `scale(${click ? .82 : 1})`;
+    $$('#s7-list .feat').forEach((el, i) => { const k = p(t, 21.6 + i * .2, 22.2 + i * .2, E.expo); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 30}px)`; });
+  }
+
+  /* 8 · outro */
+  if (t >= S.s8[0]) {
+    wipe($('#s8'), t, S.s8, 'circle');
+    ['#s8-p1', '#s8-p2'].forEach((id, i) => { const el = $(id); const L = el.getTotalLength(); el.style.strokeDasharray = L; el.style.strokeDashoffset = L * (1 - p(t, 23.9 + i * .3, 24.9 + i * .3, E.inOut)); });
+    s8Letters.forEach((el, i) => { const k = p(t, 24.2 + i * .06, 25.1 + i * .06, E.expo); el.style.transform = `translateY(${(1 - k) * 110}%)`; });
+    const tk = p(t, 24.9, 25.5); $('#s8-tag').style.opacity = tk * .85; $('#s8-tag').style.transform = `translateY(${(1 - tk) * 24}px)`;
+    const ck = p(t, 25.3, 25.9, E.back); $('#s8-cta').style.opacity = clamp(ck * 2); $('#s8-cta').style.transform = `scale(${.7 + .3 * ck})`;
+    $('#s8-foot').style.opacity = p(t, 25.7, 26.3);
+  }
+
+  grain(frame);
+  $('#grain').style.transform = `translate(${(frame * 37) % 50 - 25}px, ${(frame * 53) % 50 - 25}px)`;
+  return Promise.all([...document.images].filter((im) => !im.complete).map((im) => im.decode().catch(() => {})));
+}
+
+window.seek = seek;
+window.DURATION = DURATION;
+window.ready = Promise.all([document.fonts.ready, ...preload.map((im) => im.decode().catch(() => {}))]);
+if (!navigator.webdriver) { // open reel.html in a browser to watch it live
+  window.ready.then(() => { const t0 = performance.now(); const loop = () => { const t = ((performance.now() - t0) / 1000) % DURATION; seek(t); requestAnimationFrame(loop); }; loop(); });
+}
+</script>
+</body>
+</html>
